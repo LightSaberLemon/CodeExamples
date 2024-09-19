@@ -1,6 +1,6 @@
 # CodeExamples for public discussions or various bug reports.
 
-Applications can be compiled with Delphi (usually TurboDelphi 20006) or FreePascal (CodeTyphon 7.9 or newer).
+Applications can be compiled with Delphi (usually TurboDelphi 2006) or FreePascal (CodeTyphon 7.9 or newer).
 
 Misc:
 
