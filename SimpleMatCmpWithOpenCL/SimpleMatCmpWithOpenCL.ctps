@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <ProjectSession>
+    <PathDelim Value="\"/>
+    <Version Value="12"/>
+    <BuildModes Active="Default"/>
+    <Units>
+      <Unit>
+        <Filename Value="SimpleMatCmpWithOpenCL.ppr"/>
+        <FRMtype Value="0"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="1"/>
+        <WindowIndex Value="0"/>
+        <CursorPos X="50" Y="8"/>
+        <UsageCount Value="21"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="SimpleMatCmpWithOpenCLMainForm.pas"/>
+        <FRMtype Value="200"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="frmSimpleMatCmpWithOpenCLMain"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="Form"/>
+        <IsVisibleTab Value="True"/>
+        <EditorIndex Value="0"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="61"/>
+        <CursorPos X="22" Y="72"/>
+        <UsageCount Value="21"/>
+        <Loaded Value="True"/>
+        <LoadedDesigner Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="C:\codetyphon\fpcsrc\packages\opencl\src\cl.pp"/>
+        <FRMtype Value="0"/>
+        <EditorIndex Value="2"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="1191"/>
+        <CursorPos X="5" Y="1253"/>
+        <UsageCount Value="11"/>
+        <Loaded Value="True"/>
+      </Unit>
+    </Units>
+    <JumpHistory HistoryIndex="27">
+      <Position>
+        <Filename Value="SimpleMatCmpWithOpenCLMainForm.pas"/>
+      </Position>
+      <Position>
+        <Filename Value="SimpleMatCmpWithOpenCLMainForm.pas"/>
+        <Caret Line="77" TopLine="60"/>
+      </Position>
+      <Position>
+        <Filename Value="SimpleMatCmpWithOpenCLMainForm.pas"/>
+        <Caret Line="80" Column="47" TopLine="18"/>
+      </Position>
+      <Position>
+        <Filename Value="SimpleMatCmpWithOpenCLMainForm.pas"/>
+        <Caret Line="85" TopLine="72"/>
+      </Position>
+      <Position>
+        <Filename Value="SimpleMatCmpWithOpenCLMainForm.pas"/>
+        <Caret Line="141" Column="5" TopLine="118"/>
+      </Position>
+      <Position>
+        <Filename Value="SimpleMatCmpWithOpenCLMainForm.pas"/>
+        <Caret Line="171" Column="94" TopLine="153"/>
+      </Position>
+      <Position>
+        <Filename Value="SimpleMatCmpWithOpenCLMainForm.pas"/>
+        <Caret Line="104" Column="12" TopLine="90"/>
+      </Position>
+      <Position>
+        <Filename Value="SimpleMatCmpWithOpenCLMainForm.pas"/>
+        <Caret Line="178" Column="16" TopLine="163"/>
+      </Position>
+      <Position>
+        <Filename Value="SimpleMatCmpWithOpenCLMainForm.pas"/>
+        <Caret Line="119" Column="15" TopLine="104"/>
+      </Position>
+      <Position>
+        <Filename Value="SimpleMatCmpWithOpenCLMainForm.pas"/>
+        <Caret Line="182" Column="81" TopLine="164"/>
+      </Position>
+      <Position>
+        <Filename Value="SimpleMatCmpWithOpenCLMainForm.pas"/>
+        <Caret Line="178" Column="22" TopLine="164"/>
+      </Position>
+      <Position>
+        <Filename Value="SimpleMatCmpWithOpenCLMainForm.pas"/>
+        <Caret Line="193" Column="57" TopLine="178"/>
+      </Position>
+      <Position>
+        <Filename Value="SimpleMatCmpWithOpenCLMainForm.pas"/>
+        <Caret Line="201" Column="20" TopLine="181"/>
+      </Position>
+      <Position>
+        <Filename Value="SimpleMatCmpWithOpenCLMainForm.pas"/>
+        <Caret Line="210" Column="90" TopLine="193"/>
+      </Position>
+      <Position>
+        <Filename Value="SimpleMatCmpWithOpenCLMainForm.pas"/>
+        <Caret Line="206" Column="79" TopLine="193"/>
+      </Position>
+      <Position>
+        <Filename Value="SimpleMatCmpWithOpenCLMainForm.pas"/>
+        <Caret Line="216" Column="51" TopLine="193"/>
+      </Position>
+      <Position>
+        <Filename Value="SimpleMatCmpWithOpenCLMainForm.pas"/>
+        <Caret Line="39" Column="43" TopLine="25"/>
+      </Position>
+      <Position>
+        <Filename Value="SimpleMatCmpWithOpenCLMainForm.pas"/>
+        <Caret Line="194" Column="16" TopLine="180"/>
+      </Position>
+      <Position>
+        <Filename Value="SimpleMatCmpWithOpenCLMainForm.pas"/>
+        <Caret Line="257" Column="72" TopLine="246"/>
+      </Position>
+      <Position>
+        <Filename Value="SimpleMatCmpWithOpenCLMainForm.pas"/>
+        <Caret Line="259" Column="34" TopLine="247"/>
+      </Position>
+      <Position>
+        <Filename Value="SimpleMatCmpWithOpenCLMainForm.pas"/>
+        <Caret Line="265" Column="24" TopLine="257"/>
+      </Position>
+      <Position>
+        <Filename Value="SimpleMatCmpWithOpenCLMainForm.pas"/>
+        <Caret Line="263" Column="32" TopLine="252"/>
+      </Position>
+      <Position>
+        <Filename Value="SimpleMatCmpWithOpenCLMainForm.pas"/>
+        <Caret Line="283" Column="30" TopLine="273"/>
+      </Position>
+      <Position>
+        <Filename Value="SimpleMatCmpWithOpenCLMainForm.pas"/>
+        <Caret Line="281" Column="50" TopLine="273"/>
+      </Position>
+      <Position>
+        <Filename Value="SimpleMatCmpWithOpenCL.ppr"/>
+        <Caret Line="15" Column="44"/>
+      </Position>
+      <Position>
+        <Filename Value="SimpleMatCmpWithOpenCLMainForm.pas"/>
+        <Caret Line="259" Column="133" TopLine="246"/>
+      </Position>
+      <Position>
+        <Filename Value="SimpleMatCmpWithOpenCLMainForm.pas"/>
+        <Caret Line="252" Column="51" TopLine="247"/>
+      </Position>
+      <Position>
+        <Filename Value="SimpleMatCmpWithOpenCLMainForm.pas"/>
+        <Caret Line="278" Column="69" TopLine="274"/>
+      </Position>
+    </JumpHistory>
+    <RunParams>
+      <FormatVersion Value="2"/>
+      <Modes ActiveMode=""/>
+    </RunParams>
+  </ProjectSession>
+</CONFIG>
