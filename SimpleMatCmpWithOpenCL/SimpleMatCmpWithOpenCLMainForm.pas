@@ -29,7 +29,8 @@ unit SimpleMatCmpWithOpenCLMainForm;
 interface
 
 uses
-  Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls;
+  Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls, ComCtrls,
+  Spin;
 
 type
 
@@ -37,7 +38,13 @@ type
 
   TfrmSimpleMatCmpWithOpenCLMain = class(TForm)
     btnMatCmp: TButton;
+    lblYOffset: TLabel;
+    lblXOffset: TLabel;
     memLog: TMemo;
+    prbXOffset: TProgressBar;
+    prbYOffset: TProgressBar;
+    spnedtXOffset: TSpinEdit;
+    spnedtYOffset: TSpinEdit;
     procedure btnMatCmpClick(Sender: TObject);
   private
     procedure AddToLog(s: string);
@@ -93,7 +100,7 @@ const
 
   CBackgroundBmpWidth = 1920;
   CBackgroundBmpHeight = 1080;
-  CSubBmpWidth = 20;
+  CSubBmpWidth = 237;
   CSubBmpHeight = 16;
 
 
@@ -164,8 +171,8 @@ begin
     for j := 0 to BackgroundBmpWidth - 1 do
       BackgroundData[i * BackgroundBmpWidth + j] := Random(256);
 
-  XOffset := 4; //180
-  YOffset := 5; //117
+  XOffset := spnedtXOffset.Value; //180
+  YOffset := spnedtYOffset.Value; //117
 
   for i := 0 to SubBmpHeight - 1 do
     for j := 0 to SubBmpWidth - 1 do
@@ -201,6 +208,7 @@ begin
       Error := clBuildProgram(CLProgram, 0, nil, nil, nil, nil);
       LogCallResult(Error, 'clBuildProgram', 'Kernel code compiled.');
 
+      btnMatCmp.Enabled := False;
       CLKernel := clCreateKernel(CLProgram, 'MatCmp', Error);
       try
         LogCallResult(Error, 'clCreateKernel', 'Kernel allocated.');
@@ -254,17 +262,23 @@ begin
               Error := clSetKernelArg(CLKernel, 7, SizeOf(Byte), @ColorError);
               LogCallResult(Error, 'clSetKernelArg', 'ColorError argument set.');
 
-              //Error := clGetKernelWorkGroupInfo(CLKernel, DeviceID, CL_KERNEL_WORK_GROUP_SIZE, SizeOf(LocalSize), @LocalSize, nil);
-              //LogCallResult(Error, 'clGetKernelWorkGroupInfo', 'Work group info obtained.');
-
               GlobalSize := SubBmpHeight;
               LogCallResult(Error, 'Matrix comparison', 'Starting...');
               memLog.Repaint;
 
+              prbXOffset.Max := CBackgroundBmpWidth - CSubBmpWidth - 1;
+              prbYOffset.Max := CBackgroundBmpHeight - CSubBmpHeight - 1;
+
               for i := 0 to CBackgroundBmpHeight - CSubBmpHeight - 1 do
               begin
+                prbYOffset.Position := i;
+                //prbYOffset.Repaint;
+
                 for j := 0 to CBackgroundBmpWidth - CSubBmpWidth - 1 do
                 begin
+                  prbXOffset.Position := j;
+                  //prbXOffset.Repaint;
+
                   XOffset := j;
                   YOffset := i;
 
@@ -282,22 +296,27 @@ begin
 
                   Error := clEnqueueReadBuffer(CmdQueue, ResBufferRef, CL_TRUE, 0, csize_t(SizeOf(LongInt) * SubBmpHeight), @DiffCntPerRow, 0, nil, nil);
                   LogCallResult(Error, 'clEnqueueReadBuffer', '');
+
+                  DifferentCount := 0;
+                  for k := 0 to CSubBmpHeight - 1 do //results len
+                    if DiffCntPerRow[k] > 0 then
+                      Inc(DifferentCount);
+
+                  if DifferentCount = 0 then
+                  begin
+                    AddToLog('Found a match at XOffset = ' + IntToStr(XOffset) + '  YOffset = ' + IntToStr(YOffset));
+                    Break;
+                  end;
                 end; //for j
 
-                DifferentCount := 0;
-                for k := 0 to CSubBmpHeight - 1 do //results len
-                  if DiffCntPerRow[k] > 0 then
-                    Inc(DifferentCount);
-
-                if DifferentCount = 0 then
-                begin
-                  AddToLog('Found a match at XOffset = ' + IntToStr(XOffset) + '  YOffset = ' + IntToStr(YOffset));
-                  Break;
-                end;
-
                 if DifferentCount = 0 then
                   Break;
+
+                Application.ProcessMessages;
               end; //for i
+
+              prbXOffset.Position := 0;
+              prbYOffset.Position := 0;
             finally
               clReleaseMemObject(ResBufferRef);
             end;
@@ -309,6 +328,7 @@ begin
         end;
       finally  //clCreateKernel
         clReleaseKernel(CLKernel);
+        btnMatCmp.Enabled := True;
       end;
 
       clReleaseProgram(CLProgram);
