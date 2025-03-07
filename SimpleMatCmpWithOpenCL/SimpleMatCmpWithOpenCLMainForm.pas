@@ -38,15 +38,20 @@ type
 
   TfrmSimpleMatCmpWithOpenCLMain = class(TForm)
     btnMatCmp: TButton;
+    btnStop: TButton;
     lblYOffset: TLabel;
     lblXOffset: TLabel;
+    lblCurrentYOffset: TLabel;
     memLog: TMemo;
     prbXOffset: TProgressBar;
     prbYOffset: TProgressBar;
     spnedtXOffset: TSpinEdit;
     spnedtYOffset: TSpinEdit;
     procedure btnMatCmpClick(Sender: TObject);
+    procedure btnStopClick(Sender: TObject);
   private
+    FStop: Boolean;
+
     procedure AddToLog(s: string);
     procedure StopExecution(AError: Integer; AFuncName: string);
     procedure LogCallResult(AError: Integer; AFuncName, AInfo: string);
@@ -66,12 +71,11 @@ uses
 
 
 //ToDo:
-//- move  for i, for j kernel execution calling to a new kernel, which starts the MatCmp kernel instances
-//- implement R G B verification in kernel
-//- find out where the execution freezes
+//- move  for i, for j kernel execution calling to a new kernel, which starts the MatCmp kernel instances  (may require OpenCL >= 2.0)
 
-const
-  KernelSrc: PAnsiChar = //int is 32-bit, long is 64-bit
+function GetKernelSrc: string;
+begin        //int is 32-bit, long is 64-bit
+  Result :=
     '__kernel void MatCmp(                      ' + #13#10 +
     '  __global uchar* ABackgroundBmp,          ' + #13#10 +
     '  __global uchar* ASubBmp,                 ' + #13#10 +
@@ -97,7 +101,60 @@ const
     '  }  //for                                 ' + #13#10 +
     '  AResultedErrCount[YIdx] = ErrCount;      ' + #13#10 +
     '}';
+end;
 
+
+function GetKernelSrcRGB(ARGBSize: Byte): string;
+var
+  RGBSizeStr: string;
+begin      //int is 32-bit, long is 64-bit
+  if not (ARGBSize in [3, 4]) then
+  begin
+    Result := 'Bad code';
+    Exit;
+  end;
+
+  RGBSizeStr := IntToStr(ARGBSize);
+
+  Result :=
+    '__kernel void MatCmp(                      ' + #13#10 +
+    '  __global uchar* ABackgroundBmp,          ' + #13#10 +
+    '  __global uchar* ASubBmp,                 ' + #13#10 +
+    '  __global int* AResultedErrCount,         ' + #13#10 +
+    '  const unsigned int ABackgroundWidth,     ' + #13#10 +
+    '  const unsigned int ASubBmpWidth,         ' + #13#10 +
+    '  const unsigned int AXOffset,             ' + #13#10 +
+    '  const unsigned int AYOffset,             ' + #13#10 +
+    '  const uchar AColorError)                 ' + #13#10 +
+    '{                                          ' + #13#10 +
+    '  int YIdx = get_global_id(0);             ' + #13#10 + //goes from 0 to SubBmpHeight - 1
+    '  __global uchar const * BGRow = &ABackgroundBmp[((YIdx + AYOffset) * ABackgroundWidth + AXOffset) * ' + RGBSizeStr + '];' + #13#10 + //pointer to the current row, indexed by YIdx
+    '  __global uchar const * SubRow = &ASubBmp[(YIdx * ASubBmpWidth) * ' + RGBSizeStr + '];' + #13#10 + //pointer to the current row, indexed by YIdx
+    '  int ErrCount = 0;                             ' + #13#10 +
+    '  for (int x = 0; x < ASubBmpWidth; x++)        ' + #13#10 +
+    '  {                                             ' + #13#10 +
+    '     int x0 = x * ' + RGBSizeStr + ' + 0;                        ' + #13#10 +
+    '     int x1 = x * ' + RGBSizeStr + ' + 1;                        ' + #13#10 +
+    '     int x2 = x * ' + RGBSizeStr + ' + 2;                        ' + #13#10 +
+    '     short SubPxB = SubRow[x0];                 ' + #13#10 +
+    '     short BGPxB = BGRow[x0];                   ' + #13#10 +
+    '     short SubPxG = SubRow[x1];                 ' + #13#10 +
+    '     short BGPxG = BGRow[x1];                   ' + #13#10 +
+    '     short SubPxR = SubRow[x2];                 ' + #13#10 +
+    '     short BGPxR = BGRow[x2];                   ' + #13#10 +
+    '     if ((abs(SubPxR - BGPxR) > AColorError) || ' + #13#10 +
+    '         (abs(SubPxG - BGPxG) > AColorError) || ' + #13#10 +
+    '         (abs(SubPxB - BGPxB) > AColorError))   ' + #13#10 +
+    '     {                                          ' + #13#10 +
+    '       ErrCount++;                              ' + #13#10 +
+    '     }  //if                                    ' + #13#10 +
+    '  }  //for                                      ' + #13#10 +
+    '  AResultedErrCount[YIdx] = ErrCount;           ' + #13#10 +
+    '}';
+end;
+
+
+const
   CBackgroundBmpWidth = 1920;
   CBackgroundBmpHeight = 1080;
   CSubBmpWidth = 237;
@@ -131,13 +188,34 @@ begin
 end;
 
 
+{$DEFINE RGBItem}
+//{$DEFINE RGBAlphaItem}
+
+
 procedure TfrmSimpleMatCmpWithOpenCLMain.btnMatCmpClick(Sender: TObject);
+type
+  {$IFnDEF RGBItem}
+    TArrItem = record  //1-byte px
+      Item: Byte;
+    end;
+  {$ELSE}
+    TArrItem = record  //3/4-byte px
+      B: Byte;
+      G: Byte;
+      R: Byte;
+      {$IFDEF RGBAlphaItem}
+        A: Byte;
+      {$ENDIF}
+    end;
+  {$ENDIF}
 var
   Error: Integer;
-  BackgroundData: array[0..CBackgroundBmpWidth * CBackgroundBmpHeight - 1] of Byte;
-  SubBmpData: array[0..CSubBmpWidth * CSubBmpHeight - 1] of Byte;
+  BackgroundData: array[0..CBackgroundBmpWidth * CBackgroundBmpHeight - 1] of TArrItem; // Byte;
+  SubBmpData: array[0..CSubBmpWidth * CSubBmpHeight - 1] of TArrItem; // Byte;
   DiffCntPerRow: array[0..CSubBmpHeight - 1] of LongInt;
   DifferentCount: LongInt;
+
+  KernelSrc: string;
 
   GlobalSize: csize_t;
   LocalSize: csize_t;
@@ -160,23 +238,58 @@ var
   DevType: cl_device_type; //GPU
   PlatformIDs: Pcl_platform_id;
   PlatformCount: cl_uint;
+  BGIdx: Integer;
+  SubIdx: Integer;
+
+  tk: QWord;
 begin
+  FStop := False;
+
   BackgroundBmpWidth := CBackgroundBmpWidth;
   BackgroundBmpHeight := CBackgroundBmpHeight;
   SubBmpWidth := CSubBmpWidth;
   SubBmpHeight := CSubBmpHeight;
 
+  AddToLog('SizeOf(TArrItem): ' + IntToStr(SizeOf(TArrItem)));
+
+  {$IFnDEF RGBItem}
+    KernelSrc := GetKernelSrc1;
+  {$ELSE}
+    KernelSrc := GetKernelSrcRGB(3 {$IFDEF RGBAlphaItem} + 1 {$ENDIF});
+  {$ENDIF}
+
   Randomize;
   for i := 0 to BackgroundBmpHeight - 1 do
     for j := 0 to BackgroundBmpWidth - 1 do
-      BackgroundData[i * BackgroundBmpWidth + j] := Random(256);
+    begin
+      BGIdx := i * BackgroundBmpWidth + j;
+
+      {$IFnDEF RGBItem}
+        BackgroundData[BGIdx].Item := Random(256);
+      {$ELSE}
+        BackgroundData[BGIdx].R := Random(256);
+        BackgroundData[BGIdx].G := Random(256);
+        BackgroundData[BGIdx].B := Random(256);
+        {$IFDEF RGBAlphaItem}
+          BackgroundData[BGIdx].A := Random(256);
+        {$ENDIF}
+      {$ENDIF}
+    end;
 
   XOffset := spnedtXOffset.Value; //180
   YOffset := spnedtYOffset.Value; //117
 
   for i := 0 to SubBmpHeight - 1 do
     for j := 0 to SubBmpWidth - 1 do
-      SubBmpData[i * SubBmpWidth + j] := BackgroundData[(i + YOffset) * BackgroundBmpWidth + j + XOffset];
+    begin
+      BGIdx := (i + YOffset) * BackgroundBmpWidth + j + XOffset;
+      SubIdx := i * SubBmpWidth + j;
+      SubBmpData[SubIdx] := BackgroundData[BGIdx];
+
+      {$IFDEF RGBAlphaItem}
+        SubBmpData[SubIdx].A := BackgroundData[BGIdx].A + 123; // Make sure the alpha channel is different. This proves that only the R, G, B fields are compared at GPU side.
+      {$ENDIF}
+    end;
 
   try
     Error := clGetPlatformIDs(0, nil, @PlatformCount);
@@ -216,11 +329,11 @@ begin
         Error := clGetKernelWorkGroupInfo(CLKernel, DeviceID, CL_KERNEL_WORK_GROUP_SIZE, SizeOf(LocalSize), @LocalSize, nil);
         LogCallResult(Error, 'clGetKernelWorkGroupInfo', 'Work group info obtained.');
 
-        BackgroundBufferRef := clCreateBuffer(Context, CL_MEM_READ_ONLY, csize_t(SizeOf(cuchar) * BackgroundBmpWidth * BackgroundBmpHeight), nil, Error);
+        BackgroundBufferRef := clCreateBuffer(Context, CL_MEM_READ_ONLY, csize_t(SizeOf(TArrItem) * BackgroundBmpWidth * BackgroundBmpHeight), nil, Error);
         try
           LogCallResult(Error, 'clCreateBuffer', 'Background buffer created.');
 
-          SubBufferRef := clCreateBuffer(Context, CL_MEM_READ_ONLY, csize_t(SizeOf(cuchar) * SubBmpWidth * SubBmpHeight), nil, Error);
+          SubBufferRef := clCreateBuffer(Context, CL_MEM_READ_ONLY, csize_t(SizeOf(TArrItem) * SubBmpWidth * SubBmpHeight), nil, Error);
           try
             LogCallResult(Error, 'clCreateBuffer', 'Sub buffer created.');
 
@@ -228,10 +341,10 @@ begin
             try
               LogCallResult(Error, 'clCreateBuffer', 'Res buffer created.');
 
-              Error := clEnqueueWriteBuffer(CmdQueue, BackgroundBufferRef, CL_TRUE, 0, csize_t(SizeOf(cuchar) * BackgroundBmpWidth * BackgroundBmpHeight), @BackgroundData, 0, nil, nil);
+              Error := clEnqueueWriteBuffer(CmdQueue, BackgroundBufferRef, CL_TRUE, 0, csize_t(SizeOf(TArrItem) * BackgroundBmpWidth * BackgroundBmpHeight), @BackgroundData, 0, nil, nil);
               LogCallResult(Error, 'clEnqueueWriteBuffer', 'Background buffer written.');
 
-              Error := clEnqueueWriteBuffer(CmdQueue, SubBufferRef, CL_TRUE, 0, csize_t(SizeOf(cuchar) * SubBmpWidth * SubBmpHeight), @SubBmpData, 0, nil, nil);
+              Error := clEnqueueWriteBuffer(CmdQueue, SubBufferRef, CL_TRUE, 0, csize_t(SizeOf(TArrItem) * SubBmpWidth * SubBmpHeight), @SubBmpData, 0, nil, nil);
               LogCallResult(Error, 'clEnqueueWriteBuffer', 'Sub buffer written.');
 
               XOffset := 0;
@@ -269,10 +382,12 @@ begin
               prbXOffset.Max := CBackgroundBmpWidth - CSubBmpWidth - 1;
               prbYOffset.Max := CBackgroundBmpHeight - CSubBmpHeight - 1;
 
+              tk := GetTickCount64;
               for i := 0 to CBackgroundBmpHeight - CSubBmpHeight - 1 do
               begin
                 prbYOffset.Position := i;
                 //prbYOffset.Repaint;
+                lblCurrentYOffset.Caption := IntToStr(i);
 
                 for j := 0 to CBackgroundBmpWidth - CSubBmpWidth - 1 do
                 begin
@@ -304,12 +419,18 @@ begin
 
                   if DifferentCount = 0 then
                   begin
-                    AddToLog('Found a match at XOffset = ' + IntToStr(XOffset) + '  YOffset = ' + IntToStr(YOffset));
+                    AddToLog('Found a match at XOffset = ' + IntToStr(XOffset) + '  YOffset = ' + IntToStr(YOffset) + '  in ' + IntToStr(GetTickCount64 - tk) + 'ms.');
                     Break;
                   end;
+
+                  if FStop then
+                    Break;
                 end; //for j
 
                 if DifferentCount = 0 then
+                  Break;
+
+                if FStop then
                   Break;
 
                 Application.ProcessMessages;
@@ -340,6 +461,12 @@ begin
   finally
     AddToLog('Done');
   end;
+end;
+
+
+procedure TfrmSimpleMatCmpWithOpenCLMain.btnStopClick(Sender: TObject);
+begin
+  FStop := True;
 end;
 
 end.

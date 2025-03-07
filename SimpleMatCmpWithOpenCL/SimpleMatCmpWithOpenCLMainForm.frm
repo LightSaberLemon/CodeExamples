@@ -6,6 +6,8 @@ object frmSimpleMatCmpWithOpenCLMain: TfrmSimpleMatCmpWithOpenCLMain
   Caption = 'Simple MatCmp With OpenCL'
   ClientHeight = 235
   ClientWidth = 456
+  Constraints.MinHeight = 235
+  Constraints.MinWidth = 456
   LCLVersion = '8.4'
   object btnMatCmp: TButton
     Left = 8
@@ -24,13 +26,15 @@ object frmSimpleMatCmpWithOpenCLMain: TfrmSimpleMatCmpWithOpenCLMain
     Height = 168
     Top = 56
     Width = 440
+    Anchors = [akTop, akLeft, akRight, akBottom]
+    ScrollBars = ssBoth
     TabOrder = 1
   end
   object prbXOffset: TProgressBar
     Left = 200
     Height = 16
     Top = 0
-    Width = 248
+    Width = 216
     Smooth = True
     TabOrder = 2
   end
@@ -38,7 +42,7 @@ object frmSimpleMatCmpWithOpenCLMain: TfrmSimpleMatCmpWithOpenCLMain
     Left = 200
     Height = 16
     Top = 28
-    Width = 248
+    Width = 216
     Smooth = True
     TabOrder = 3
   end
@@ -73,5 +77,21 @@ object frmSimpleMatCmpWithOpenCLMain: TfrmSimpleMatCmpWithOpenCLMain
     Top = 31
     Width = 39
     Caption = 'YOffset'
+  end
+  object btnStop: TButton
+    Left = 8
+    Height = 25
+    Top = 26
+    Width = 76
+    Caption = 'Stop'
+    TabOrder = 6
+    OnClick = btnStopClick
+  end
+  object lblCurrentYOffset: TLabel
+    Left = 424
+    Height = 15
+    Top = 31
+    Width = 6
+    Caption = '0'
   end
 end
