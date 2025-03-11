@@ -209,10 +209,10 @@ type
     end;
   {$ENDIF}
 var
-  Error: Integer;
+  Error, SecondError: Integer;
   BackgroundData: array[0..CBackgroundBmpWidth * CBackgroundBmpHeight - 1] of TArrItem; // Byte;
   SubBmpData: array[0..CSubBmpWidth * CSubBmpHeight - 1] of TArrItem; // Byte;
-  DiffCntPerRow: array[0..CSubBmpHeight - 1] of LongInt;
+  DiffCntPerRow: array of LongInt;
   DifferentCount: LongInt;
 
   KernelSrc: string;
@@ -242,6 +242,8 @@ var
   SubIdx: Integer;
 
   tk: QWord;
+  Info: string;
+  InfoLen: csize_t;
 begin
   FStop := False;
 
@@ -307,154 +309,169 @@ begin
       LogCallResult(Error, 'clGetDeviceIDs', '');
 
       Context := clCreateContext(nil, 1, @DeviceID, nil, nil, Error);
-      if Context = nil then
-        LogCallResult(Error, 'clCreateContext', '');
-
-      CmdQueue := clCreateCommandQueue(Context, DeviceID, 0, Error);
-      if CmdQueue = nil then
-        LogCallResult(Error, 'clCreateCommandQueue', '');
-
-      CLProgram := clCreateProgramWithSource(Context, 1, PPAnsiChar(@KernelSrc), nil, Error);
-      if CLProgram = nil then
-        LogCallResult(Error, 'clCreateProgramWithSource', '');
-
-      Error := clBuildProgram(CLProgram, 0, nil, nil, nil, nil);
-      LogCallResult(Error, 'clBuildProgram', 'Kernel code compiled.');
-
-      btnMatCmp.Enabled := False;
-      CLKernel := clCreateKernel(CLProgram, 'MatCmp', Error);
       try
-        LogCallResult(Error, 'clCreateKernel', 'Kernel allocated.');
+        if Context = nil then
+          LogCallResult(Error, 'clCreateContext', '');
 
-        Error := clGetKernelWorkGroupInfo(CLKernel, DeviceID, CL_KERNEL_WORK_GROUP_SIZE, SizeOf(LocalSize), @LocalSize, nil);
-        LogCallResult(Error, 'clGetKernelWorkGroupInfo', 'Work group info obtained.');
+        CmdQueue := clCreateCommandQueue(Context, DeviceID, 0, Error);
+        if CmdQueue = nil then
+          LogCallResult(Error, 'clCreateCommandQueue', '');
 
-        BackgroundBufferRef := clCreateBuffer(Context, CL_MEM_READ_ONLY, csize_t(SizeOf(TArrItem) * BackgroundBmpWidth * BackgroundBmpHeight), nil, Error);
+        CLProgram := clCreateProgramWithSource(Context, 1, PPAnsiChar(@KernelSrc), nil, Error);
+        if CLProgram = nil then
+          LogCallResult(Error, 'clCreateProgramWithSource', '');
+
+        Error := clBuildProgram(CLProgram, 0, nil, nil, nil, nil);
+        //LogCallResult(Error, 'clBuildProgram', 'Kernel code compiled.');
+
+        if Error < CL_SUCCESS then
+        begin
+          SetLength(Info, 32768);
+          SecondError := clGetProgramBuildInfo(CLProgram, DeviceID, CL_PROGRAM_BUILD_LOG, Length(Info), @Info[1], InfoLen);
+          SetLength(Info, InfoLen);
+          LogCallResult(SecondError, 'clGetProgramBuildInfo', 'Additional build info.');
+
+          Info := StringReplace(Info, #13#10, '|', [rfReplaceAll]);
+          Info := StringReplace(Info, #10, '|', [rfReplaceAll]);
+          LogCallResult(Error, 'clBuildProgram', 'Kernel code compiled. ' + Info);
+        end;
+
+        btnMatCmp.Enabled := False;
+        CLKernel := clCreateKernel(CLProgram, 'MatCmp', Error);
         try
-          LogCallResult(Error, 'clCreateBuffer', 'Background buffer created.');
+          LogCallResult(Error, 'clCreateKernel', 'Kernel allocated.');
 
-          SubBufferRef := clCreateBuffer(Context, CL_MEM_READ_ONLY, csize_t(SizeOf(TArrItem) * SubBmpWidth * SubBmpHeight), nil, Error);
+          Error := clGetKernelWorkGroupInfo(CLKernel, DeviceID, CL_KERNEL_WORK_GROUP_SIZE, SizeOf(LocalSize), @LocalSize, nil);
+          LogCallResult(Error, 'clGetKernelWorkGroupInfo', 'Work group info obtained.');
+
+          BackgroundBufferRef := clCreateBuffer(Context, CL_MEM_READ_ONLY, csize_t(SizeOf(TArrItem) * BackgroundBmpWidth * BackgroundBmpHeight), nil, Error);
           try
-            LogCallResult(Error, 'clCreateBuffer', 'Sub buffer created.');
+            LogCallResult(Error, 'clCreateBuffer', 'Background buffer created.');
 
-            ResBufferRef := clCreateBuffer(Context, CL_MEM_WRITE_ONLY, csize_t(SizeOf(LongInt) * SubBmpHeight), nil, Error);
+            SubBufferRef := clCreateBuffer(Context, CL_MEM_READ_ONLY, csize_t(SizeOf(TArrItem) * SubBmpWidth * SubBmpHeight), nil, Error);
             try
-              LogCallResult(Error, 'clCreateBuffer', 'Res buffer created.');
+              LogCallResult(Error, 'clCreateBuffer', 'Sub buffer created.');
 
-              Error := clEnqueueWriteBuffer(CmdQueue, BackgroundBufferRef, CL_TRUE, 0, csize_t(SizeOf(TArrItem) * BackgroundBmpWidth * BackgroundBmpHeight), @BackgroundData, 0, nil, nil);
-              LogCallResult(Error, 'clEnqueueWriteBuffer', 'Background buffer written.');
+              ResBufferRef := clCreateBuffer(Context, CL_MEM_WRITE_ONLY, csize_t(SizeOf(LongInt) * SubBmpHeight), nil, Error);
+              try
+                LogCallResult(Error, 'clCreateBuffer', 'Res buffer created.');
 
-              Error := clEnqueueWriteBuffer(CmdQueue, SubBufferRef, CL_TRUE, 0, csize_t(SizeOf(TArrItem) * SubBmpWidth * SubBmpHeight), @SubBmpData, 0, nil, nil);
-              LogCallResult(Error, 'clEnqueueWriteBuffer', 'Sub buffer written.');
+                Error := clEnqueueWriteBuffer(CmdQueue, BackgroundBufferRef, CL_TRUE, 0, csize_t(SizeOf(TArrItem) * BackgroundBmpWidth * BackgroundBmpHeight), @BackgroundData, 0, nil, nil);
+                LogCallResult(Error, 'clEnqueueWriteBuffer', 'Background buffer written.');
 
-              XOffset := 0;
-              YOffset := 0;
-              ColorError := 0;
+                Error := clEnqueueWriteBuffer(CmdQueue, SubBufferRef, CL_TRUE, 0, csize_t(SizeOf(TArrItem) * SubBmpWidth * SubBmpHeight), @SubBmpData, 0, nil, nil);
+                LogCallResult(Error, 'clEnqueueWriteBuffer', 'Sub buffer written.');
 
-              Error := clSetKernelArg(CLKernel, 0, SizeOf(cl_mem), @BackgroundBufferRef); //sizeof(cl_mem)  is SizeOf(Pointer), which can be 4 or 8
-              LogCallResult(Error, 'clSetKernelArg', 'BackgroundBufferRef argument set.');
+                XOffset := 0;
+                YOffset := 0;
+                ColorError := 0;
 
-              Error := clSetKernelArg(CLKernel, 1, SizeOf(cl_mem), @SubBufferRef); //sizeof(cl_mem)  is SizeOf(Pointer), which can be 4 or 8
-              LogCallResult(Error, 'clSetKernelArg', 'SubBufferRef argument set.');
+                Error := clSetKernelArg(CLKernel, 0, SizeOf(cl_mem), @BackgroundBufferRef); //sizeof(cl_mem)  is SizeOf(Pointer), which can be 4 or 8
+                LogCallResult(Error, 'clSetKernelArg', 'BackgroundBufferRef argument set.');
 
-              Error := clSetKernelArg(CLKernel, 2, SizeOf(cl_mem), @ResBufferRef); //sizeof(cl_mem)  is SizeOf(Pointer), which can be 4 or 8
-              LogCallResult(Error, 'clSetKernelArg', 'ResBufferRef argument set.');
+                Error := clSetKernelArg(CLKernel, 1, SizeOf(cl_mem), @SubBufferRef); //sizeof(cl_mem)  is SizeOf(Pointer), which can be 4 or 8
+                LogCallResult(Error, 'clSetKernelArg', 'SubBufferRef argument set.');
 
-              Error := clSetKernelArg(CLKernel, 3, SizeOf(LongInt), @BackgroundBmpWidth);
-              LogCallResult(Error, 'clSetKernelArg', 'ABackgroundWidth argument set.');
+                Error := clSetKernelArg(CLKernel, 2, SizeOf(cl_mem), @ResBufferRef); //sizeof(cl_mem)  is SizeOf(Pointer), which can be 4 or 8
+                LogCallResult(Error, 'clSetKernelArg', 'ResBufferRef argument set.');
 
-              Error := clSetKernelArg(CLKernel, 4, SizeOf(LongInt), @SubBmpWidth);
-              LogCallResult(Error, 'clSetKernelArg', 'ASubBmpWidth argument set.');
+                Error := clSetKernelArg(CLKernel, 3, SizeOf(LongInt), @BackgroundBmpWidth);
+                LogCallResult(Error, 'clSetKernelArg', 'ABackgroundWidth argument set.');
 
-              Error := clSetKernelArg(CLKernel, 5, SizeOf(LongInt), @XOffset);
-              LogCallResult(Error, 'clSetKernelArg', 'XOffset argument set.');
+                Error := clSetKernelArg(CLKernel, 4, SizeOf(LongInt), @SubBmpWidth);
+                LogCallResult(Error, 'clSetKernelArg', 'ASubBmpWidth argument set.');
 
-              Error := clSetKernelArg(CLKernel, 6, SizeOf(LongInt), @YOffset);
-              LogCallResult(Error, 'clSetKernelArg', 'YOffset argument set.');
+                Error := clSetKernelArg(CLKernel, 5, SizeOf(LongInt), @XOffset);
+                LogCallResult(Error, 'clSetKernelArg', 'XOffset argument set.');
 
-              Error := clSetKernelArg(CLKernel, 7, SizeOf(Byte), @ColorError);
-              LogCallResult(Error, 'clSetKernelArg', 'ColorError argument set.');
+                Error := clSetKernelArg(CLKernel, 6, SizeOf(LongInt), @YOffset);
+                LogCallResult(Error, 'clSetKernelArg', 'YOffset argument set.');
 
-              GlobalSize := SubBmpHeight;
-              LogCallResult(Error, 'Matrix comparison', 'Starting...');
-              memLog.Repaint;
+                Error := clSetKernelArg(CLKernel, 7, SizeOf(Byte), @ColorError);
+                LogCallResult(Error, 'clSetKernelArg', 'ColorError argument set.');
 
-              prbXOffset.Max := CBackgroundBmpWidth - CSubBmpWidth - 1;
-              prbYOffset.Max := CBackgroundBmpHeight - CSubBmpHeight - 1;
+                GlobalSize := SubBmpHeight;
+                LogCallResult(Error, 'Matrix comparison', 'Starting...');
+                memLog.Repaint;
 
-              tk := GetTickCount64;
-              for i := 0 to CBackgroundBmpHeight - CSubBmpHeight - 1 do
-              begin
-                prbYOffset.Position := i;
-                //prbYOffset.Repaint;
-                lblCurrentYOffset.Caption := IntToStr(i);
+                prbXOffset.Max := BackgroundBmpWidth - SubBmpWidth - 1;
+                prbYOffset.Max := BackgroundBmpHeight - SubBmpHeight - 1;
 
-                for j := 0 to CBackgroundBmpWidth - CSubBmpWidth - 1 do
+                SetLength(DiffCntPerRow, GlobalSize);
+                tk := GetTickCount64;
+                for i := 0 to BackgroundBmpHeight - SubBmpHeight - 1 do
                 begin
-                  prbXOffset.Position := j;
-                  //prbXOffset.Repaint;
+                  prbYOffset.Position := i;
+                  //prbYOffset.Repaint;
+                  lblCurrentYOffset.Caption := IntToStr(i);
 
-                  XOffset := j;
-                  YOffset := i;
+                  for j := 0 to BackgroundBmpWidth - SubBmpWidth - 1 do
+                  begin
+                    prbXOffset.Position := j;
+                    //prbXOffset.Repaint;
 
-                  Error := clSetKernelArg(CLKernel, 5, SizeOf(LongInt), @XOffset);
-                  LogCallResult(Error, 'clSetKernelArg', '');
+                    XOffset := j;
+                    YOffset := i;
 
-                  Error := clSetKernelArg(CLKernel, 6, SizeOf(LongInt), @YOffset);
-                  LogCallResult(Error, 'clSetKernelArg', '');
+                    Error := clSetKernelArg(CLKernel, 5, SizeOf(LongInt), @XOffset);
+                    LogCallResult(Error, 'clSetKernelArg', '');
 
-                  Error := clEnqueueNDRangeKernel(CmdQueue, CLKernel, 1, nil, @GlobalSize, nil, 0, nil, nil);
-                  LogCallResult(Error, 'clEnqueueNDRangeKernel', '');
+                    Error := clSetKernelArg(CLKernel, 6, SizeOf(LongInt), @YOffset);
+                    LogCallResult(Error, 'clSetKernelArg', '');
 
-                  Error := clFinish(CmdQueue);
-                  LogCallResult(Error, 'clEnqueueNDRangeKernel', '');
+                    Error := clEnqueueNDRangeKernel(CmdQueue, CLKernel, 1, nil, @GlobalSize, nil, 0, nil, nil);
+                    LogCallResult(Error, 'clEnqueueNDRangeKernel', '');
 
-                  Error := clEnqueueReadBuffer(CmdQueue, ResBufferRef, CL_TRUE, 0, csize_t(SizeOf(LongInt) * SubBmpHeight), @DiffCntPerRow, 0, nil, nil);
-                  LogCallResult(Error, 'clEnqueueReadBuffer', '');
+                    Error := clFinish(CmdQueue);
+                    LogCallResult(Error, 'clEnqueueNDRangeKernel', '');
 
-                  DifferentCount := 0;
-                  for k := 0 to CSubBmpHeight - 1 do //results len
-                    if DiffCntPerRow[k] > 0 then
-                      Inc(DifferentCount);
+                    Error := clEnqueueReadBuffer(CmdQueue, ResBufferRef, CL_TRUE, 0, csize_t(SizeOf(LongInt) * GlobalSize), @DiffCntPerRow[0], 0, nil, nil);
+                    LogCallResult(Error, 'clEnqueueReadBuffer', '');
+
+                    DifferentCount := 0;
+                    for k := 0 to GlobalSize - 1 do //results len
+                      Inc(DifferentCount, DiffCntPerRow[k]);
+
+                    if DifferentCount = 0 then
+                    begin
+                      AddToLog('Found a match at XOffset = ' + IntToStr(XOffset) + '  YOffset = ' + IntToStr(YOffset) + '  in ' + IntToStr(GetTickCount64 - tk) + 'ms.');
+                      Break;
+                    end;
+
+                    if FStop then
+                      Break;
+                  end; //for j
 
                   if DifferentCount = 0 then
-                  begin
-                    AddToLog('Found a match at XOffset = ' + IntToStr(XOffset) + '  YOffset = ' + IntToStr(YOffset) + '  in ' + IntToStr(GetTickCount64 - tk) + 'ms.');
                     Break;
-                  end;
 
                   if FStop then
                     Break;
-                end; //for j
 
-                if DifferentCount = 0 then
-                  Break;
+                  Application.ProcessMessages;
+                end; //for i
 
-                if FStop then
-                  Break;
-
-                Application.ProcessMessages;
-              end; //for i
-
-              prbXOffset.Position := 0;
-              prbYOffset.Position := 0;
+                prbXOffset.Position := 0;
+                prbYOffset.Position := 0;
+              finally
+                clReleaseMemObject(ResBufferRef);
+              end;
             finally
-              clReleaseMemObject(ResBufferRef);
+              clReleaseMemObject(SubBufferRef);
             end;
           finally
-            clReleaseMemObject(SubBufferRef);
+            clReleaseMemObject(BackgroundBufferRef);
           end;
-        finally
-          clReleaseMemObject(BackgroundBufferRef);
+        finally  //clCreateKernel
+          clReleaseKernel(CLKernel);
+          btnMatCmp.Enabled := True;
         end;
-      finally  //clCreateKernel
-        clReleaseKernel(CLKernel);
-        btnMatCmp.Enabled := True;
-      end;
 
-      clReleaseProgram(CLProgram);
-      clReleaseCommandQueue(CmdQueue);
-      clReleaseContext(Context);
+        clReleaseProgram(CLProgram);
+        clReleaseCommandQueue(CmdQueue);
+      finally
+        clReleaseContext(Context);
+      end;
     finally
       Freemem(PlatformIDs, PlatformCount * SizeOf(cl_platform_id));
     end;
